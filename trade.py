@@ -19,9 +19,9 @@ except ModuleNotFoundError as e:
     print('Run "pip install -r requirements.txt" to install required packages.')
     exit(1)
 
-CONFIG_FILE_DIR  = '/storage/self/primary/'
+CONFIG_FILE_DIR = '/storage/self/primary/'
 CONFIG_FILE_NAME = 'AutoTraderConfig.yaml'
-TMP_FILE_PATH    = Path('tmp.yaml')
+TMP_FILE_PATH = Path('tmp.yaml')
 CONFIG = dict[str, list[int]]
 
 
@@ -85,7 +85,8 @@ async def trade_sequence(devices: list[DeviceAsyncWrapper]):
     button coordinates stored in attribute `config`."""
     global SLEEP_MODIFIER
     for btn in BUTTONS:
-        delay = max(btn.delay_after + (SLEEP_MODIFIER if btn.use_delay_modifier else 0), 0)
+        delay = max(btn.delay_after +
+                    (SLEEP_MODIFIER if btn.use_delay_modifier else 0), 0)
         commands = (tap(dev, dev.config[btn.name]) for dev in devices)
         print('    Sending', btn.name)
         await asyncio.gather(*commands)
@@ -114,9 +115,11 @@ async def get_config(device: DeviceAsyncWrapper) -> CONFIG:
     if not content:
         raise AutoTraderError(f'Found no config file at {config_file_path}')
     config: CONFIG = yaml.safe_load(content)
-    assert isinstance(config, dict), f'Incorrect config file format (should be an object with keys)'
+    assert isinstance(
+        config, dict), f'Incorrect config file format (should be an object with keys)'
     if not BUTTON_NAMES <= set(config.keys()):
-        raise AutoTraderError(f'Missing config key(s): {BUTTON_NAMES - set(config.keys())}')
+        raise AutoTraderError(
+            f'Missing config key(s): {BUTTON_NAMES - set(config.keys())}')
     for coords in config.values():
         assert isinstance(coords, list) and all(map(lambda i: isinstance(i, int), coords)),\
             f'Invalid coords format in config (should be list with two integers)'
@@ -135,7 +138,8 @@ async def pointer(devices: list[DeviceAsyncWrapper], on: bool):
         try:
             await set_setting(device, 'system pointer_location', int(on))
         except Exception:
-            print(f'Failed to turn {"on" if on else "off"} pointer location on', device.serial)
+            print(
+                f'Failed to turn {"on" if on else "off"} pointer location on', device.serial)
 
 
 async def setup() -> list[DeviceAsyncWrapper]:
@@ -153,7 +157,8 @@ async def setup() -> list[DeviceAsyncWrapper]:
             await get_config(device)
             print('Successfully loaded config from', device.serial)
     except (AutoTraderError, AssertionError, ParserError) as e:
-        raise AutoTraderError(f'Failed to load config from {device.serial}', *e.args) from e
+        raise AutoTraderError(
+            f'Failed to load config from {device.serial}', *e.args) from e
     return devices
 
 
