@@ -6,6 +6,7 @@ Author: jonaro00
 
 import asyncio
 from dataclasses import dataclass
+import random
 import time
 from pathlib import Path
 
@@ -35,27 +36,27 @@ class Button:
 BUTTONS = [
     Button(
         'TRADE_BTN',
-        7,
+        10,
         True,
     ),
     Button(
         'FIRST_PKMN_BTN',
-        1,
+        2,
         False,
     ),
     Button(
         'NEXT_BTN',
-        5,
+        8,
         True,
     ),
     Button(
         'CONFIRM_BTN',
-        21,
+        27,
         True,
     ),
     Button(
         'X_BTN',
-        1,
+        2,
         False,
     ),
 ]
@@ -74,9 +75,13 @@ class AutoTraderError(Exception):
 async def tap(device: DeviceAsyncWrapper, point: list[int]):
     """Sends a tap at point to device."""
     x, y = point
-    # Uses a tiny swipe over 100 ms for increased reliability
+    x = max(round(random.uniform(x - 10, x + 10), 1), 0)
+    y = max(round(random.uniform(y - 10, y + 10), 1), 0)
+    # Uses a tiny swipe over 100±20 ms for increased reliability
     # and visibility on the Pointer Location tool.
-    await device.shell(f'input swipe {x} {y} {x+1} {y+1} 100')
+    delay = int(round(random.uniform(80, 120), 0))
+    # delay for "input swipe" action needs to be int
+    await device.shell(f'input swipe {x} {y} {x+1} {y+1} {delay}')
 
 
 async def trade_sequence(devices: list[DeviceAsyncWrapper]):
@@ -87,6 +92,8 @@ async def trade_sequence(devices: list[DeviceAsyncWrapper]):
     for btn in BUTTONS:
         delay = max(btn.delay_after +
                     (SLEEP_MODIFIER if btn.use_delay_modifier else 0), 0)
+        # Adds a little bit of randomness to the time between clicks to prevent Niantic from detecting the script
+        delay = random.uniform(0.9 * delay, 1.1 * delay)
         commands = (tap(dev, dev.config[btn.name]) for dev in devices)
         print('    Sending', btn.name)
         await asyncio.gather(*commands)
