@@ -7,6 +7,7 @@ Author: jonaro00
 import asyncio
 from dataclasses import dataclass
 import random
+import subprocess
 import time
 from pathlib import Path
 
@@ -149,8 +150,17 @@ async def pointer(devices: list[DeviceAsyncWrapper], on: bool):
                 f'Failed to turn {"on" if on else "off"} pointer location on', device.serial)
 
 
+def start_server():
+    try:
+        subprocess.run(['adb', 'start-server'])
+    except:
+        # There will be an exception if adb is not in PATH and this script shouldn't require adb in PATH to work.
+        pass
+
+
 async def setup() -> list[DeviceAsyncWrapper]:
     """Checks for devices and loads config files from devices."""
+    start_server()
     client = ClientAsync()
     devices: list[DeviceAsyncWrapper] = await client.devices()
     if not devices:
