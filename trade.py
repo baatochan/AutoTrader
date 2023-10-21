@@ -51,7 +51,7 @@ BUTTONS = [
     ),
     Button(
         'CONFIRM_BTN',
-        27,
+        18,
         True,
     ),
     Button(
