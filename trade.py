@@ -10,6 +10,7 @@ import random
 import subprocess
 import time
 from pathlib import Path
+from wakepy import keep
 
 try:
     from ppadb.client_async import ClientAsync
@@ -129,7 +130,7 @@ async def get_config(device: DeviceAsyncWrapper) -> CONFIG:
         raise AutoTraderError(
             f'Missing config key(s): {BUTTON_NAMES - set(config.keys())}')
     for coords in config.values():
-        assert isinstance(coords, list) and all(map(lambda i: isinstance(i, int), coords)),\
+        assert isinstance(coords, list) and all(map(lambda i: isinstance(i, int), coords)), \
             f'Invalid coords format in config (should be list with two integers)'
     device.config = config
     return config
@@ -218,7 +219,8 @@ def interface():
             continue
         try:
             print(f'Starting {n} trades (Ctrl+C to cancel)...')
-            asyncio.run(trade_process(devices, n))
+            with keep.running():
+                asyncio.run(trade_process(devices, n))
         except KeyboardInterrupt:
             continue
         except Exception as e:
