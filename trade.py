@@ -96,9 +96,19 @@ async def trade_sequence(devices: list[DeviceAsyncWrapper]):
                     (SLEEP_MODIFIER if btn.use_delay_modifier else 0), 0)
         # Adds a little bit of randomness to the time between clicks to prevent Niantic from detecting the script
         delay = random.uniform(0.9 * delay, 1.1 * delay)
-        commands = (tap(dev, dev.config[btn.name]) for dev in devices)
         print('    Sending', btn.name)
-        await asyncio.gather(*commands)
+
+        # CONFIRM_BTN needs to be tapped sequentially on each device with a delay in between
+        # to prevent "Cannot confirm yet" error. The other buttons can be tapped simultaneously on all devices.
+        if btn.name == 'CONFIRM_BTN':
+            for i, dev in enumerate(devices):
+                await tap(dev, dev.config[btn.name])
+                if i < len(devices) - 1:
+                    await asyncio.sleep(1)
+        else:
+            commands = (tap(dev, dev.config[btn.name]) for dev in devices)
+            await asyncio.gather(*commands)
+
         await asyncio.sleep(delay)
 
 
