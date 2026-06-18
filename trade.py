@@ -240,7 +240,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-# https://github.com/encode/httpx/issues/914#issuecomment-622586610
-# https://github.com/aio-libs/aiohttp/issues/4324
-# https://github.com/aio-libs/aiohttp/issues/4324#issuecomment-733884349
