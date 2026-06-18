@@ -151,17 +151,23 @@ async def pointer(devices: list[DeviceAsyncWrapper], on: bool):
                 f'Failed to turn {"on" if on else "off"} pointer location on', device.serial)
 
 
-def start_server():
+async def start_server_if_needed():
+    """Starts adb server if not already running."""
     try:
-        subprocess.run(['adb', 'start-server'])
-    except:
-        # There will be an exception if adb is not in PATH and this script shouldn't require adb in PATH to work.
-        pass
+        # Checks if server is running by listing devices.
+        await ClientAsync().devices()
+    except RuntimeError:
+        try:
+            subprocess.run(['adb', 'start-server'], check=True)
+        except:
+            raise AutoTraderError(
+                'Failed to start ADB server. Make sure adb is installed and in your PATH. '
+                'You may also start the server manually if you don\'t want to put adb in your PATH.')
 
 
 async def setup() -> list[DeviceAsyncWrapper]:
     """Checks for devices and loads config files from devices."""
-    start_server()
+    await start_server_if_needed()
     client = ClientAsync()
     devices: list[DeviceAsyncWrapper] = await client.devices()
     if not devices:
