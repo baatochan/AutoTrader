@@ -8,6 +8,7 @@ import asyncio
 from dataclasses import dataclass
 import random
 import subprocess
+import sys
 import time
 from pathlib import Path
 from wakepy import keep
@@ -17,10 +18,10 @@ try:
     from ppadb.device_async import DeviceAsync
     import yaml
     from yaml.parser import ParserError
-except ModuleNotFoundError as e:
-    print(e)
+except ModuleNotFoundError as import_exc:
+    print(import_exc)
     print('Run "pip install -r requirements.txt" to install required packages.')
-    exit(1)
+    sys.exit(1)
 
 CONFIG_FILE_DIR = '/storage/self/primary/'
 CONFIG_FILE_NAME = 'AutoTraderConfig.yaml'
@@ -30,6 +31,8 @@ CONFIG = dict[str, list[int]]
 
 @dataclass
 class Button:
+    """UI button metadata used in the trade automation sequence."""
+
     name: str
     delay_after: float
     use_delay_modifier: bool
@@ -66,12 +69,15 @@ BUTTON_NAMES = set(btn.name for btn in BUTTONS)
 SLEEP_MODIFIER = 0
 
 
+# pylint: disable=too-few-public-methods
 class DeviceAsyncWrapper(DeviceAsync):
+    """Async ADB device with loaded button coordinate config."""
+
     config: CONFIG
 
 
 class AutoTraderError(Exception):
-    pass
+    """Custom exception for expected AutoTrader workflow failures."""
 
 
 async def tap(device: DeviceAsyncWrapper, point: list[int]):
@@ -90,16 +96,17 @@ async def trade_sequence(devices: list[DeviceAsyncWrapper]):
     """Sends taps to devices in a sequence with delays
     to complete a trade process. Device must have
     button coordinates stored in attribute `config`."""
-    global SLEEP_MODIFIER
     for btn in BUTTONS:
         delay = max(btn.delay_after +
                     (SLEEP_MODIFIER if btn.use_delay_modifier else 0), 0)
-        # Adds a little bit of randomness to the time between clicks to prevent Niantic from detecting the script
+        # Adds a little bit of randomness to the time between clicks to prevent Niantic
+        # from detecting the script
         delay = random.uniform(0.9 * delay, 1.1 * delay)
         print('    Sending', btn.name)
 
         # CONFIRM_BTN needs to be tapped sequentially on each device with a delay in between
-        # to prevent "Cannot confirm yet" error. The other buttons can be tapped simultaneously on all devices.
+        # to prevent "Cannot confirm yet" error. The other buttons can be tapped simultaneously
+        # on all devices.
         if btn.name == 'CONFIRM_BTN':
             for i, dev in enumerate(devices):
                 await tap(dev, dev.config[btn.name])
@@ -129,19 +136,19 @@ async def get_config(device: DeviceAsyncWrapper) -> CONFIG:
     """Pulls config file from device and parses it. Sets the `config` attribute on success."""
     config_file_path = CONFIG_FILE_DIR + CONFIG_FILE_NAME
     await device.pull(config_file_path, TMP_FILE_PATH)
-    content = TMP_FILE_PATH.read_text()
+    content = TMP_FILE_PATH.read_text(encoding='utf-8')
     TMP_FILE_PATH.unlink()
     if not content:
         raise AutoTraderError(f'Found no config file at {config_file_path}')
     config: CONFIG = yaml.safe_load(content)
     assert isinstance(
-        config, dict), f'Incorrect config file format (should be an object with keys)'
+        config, dict), 'Incorrect config file format (should be an object with keys)'
     if not BUTTON_NAMES <= set(config.keys()):
         raise AutoTraderError(
             f'Missing config key(s): {BUTTON_NAMES - set(config.keys())}')
     for coords in config.values():
         assert isinstance(coords, list) and all(map(lambda i: isinstance(i, int), coords)), \
-            f'Invalid coords format in config (should be list with two integers)'
+            'Invalid coords format in config (should be list with two integers)'
     device.config = config
     return config
 
@@ -156,9 +163,11 @@ async def pointer(devices: list[DeviceAsyncWrapper], on: bool):
     for device in devices:
         try:
             await set_setting(device, 'system pointer_location', int(on))
-        except Exception:
+        # Best-effort setting; do not interrupt trading flow if this toggle fails.
+        # pylint: disable=broad-exception-caught
+        except Exception as exc:
             print(
-                f'Failed to turn {"on" if on else "off"} pointer location on', device.serial)
+                f'Failed to turn {"on" if on else "off"} pointer location on', device.serial, exc)
 
 
 async def start_server_if_needed():
@@ -169,10 +178,11 @@ async def start_server_if_needed():
     except RuntimeError:
         try:
             subprocess.run(['adb', 'start-server'], check=True)
-        except:
+        except Exception as exc:
             raise AutoTraderError(
                 'Failed to start ADB server. Make sure adb is installed and in your PATH. '
-                'You may also start the server manually if you don\'t want to put adb in your PATH.')
+                'You may also start the server manually if you don\'t want to put adb in your '
+                'PATH.') from exc
 
 
 async def setup() -> list[DeviceAsyncWrapper]:
@@ -186,19 +196,22 @@ async def setup() -> list[DeviceAsyncWrapper]:
     for device in devices:
         print(' ', device.serial)
     print()
+    current_serial = 'unknown device'
     try:
         for device in devices:
+            current_serial = device.serial
             await get_config(device)
             print('Successfully loaded config from', device.serial)
-    except (AutoTraderError, AssertionError, ParserError) as e:
+    except (AutoTraderError, AssertionError, ParserError) as exc:
         raise AutoTraderError(
-            f'Failed to load config from {device.serial}', *e.args) from e
+            f'Failed to load config from {current_serial}', *exc.args) from exc
     return devices
 
 
 def interface():
     """Runs the main loop asking for user input."""
-    global SLEEP_MODIFIER
+    # Uses module-level state for interactive delay tuning command.
+    global SLEEP_MODIFIER  # pylint: disable=global-statement
     print(
         '\n'
         ' ##                          ## \n'
@@ -239,17 +252,23 @@ def interface():
                 asyncio.run(trade_process(devices, n))
         except KeyboardInterrupt:
             continue
-        except Exception as e:
-            print(e)
+        # Intentionally broad to keep the input loop alive after unexpected runtime errors.
+        # pylint: disable=broad-exception-caught
+        except Exception as exc:
+            print(exc)
 
 
 def main():
+    """Entry point that runs the interactive AutoTrader interface."""
+
     try:
         interface()
-    except AutoTraderError as e:
-        print('\n'.join(map(str, e.args)))
-    except Exception as e:
-        print('Unexpected error:', e.__class__.__name__, e.args)
+    except AutoTraderError as exc:
+        print('\n'.join(map(str, exc.args)))
+    # Intentionally broad as a final safety net to avoid ungraceful crashes.
+    # pylint: disable=broad-exception-caught
+    except Exception as exc:
+        print('Unexpected error:', exc.__class__.__name__, exc.args)
     except KeyboardInterrupt:
         pass
 
