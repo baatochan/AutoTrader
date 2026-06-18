@@ -1,4 +1,4 @@
 pure-python-adb==0.3.0.dev0
-aiofiles==24.1.0
-PyYAML==6.0.2
-wakepy==0.9.1
+aiofiles==25.1.0
+PyYAML==6.0.3
+wakepy==1.0.0
