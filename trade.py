@@ -208,6 +208,18 @@ async def setup() -> list[DeviceAsyncWrapper]:
     return devices
 
 
+def print_help():
+    """Prints the usage instructions."""
+    print(
+        "\n"
+        "Enter the number of trades to run, or \n"
+        "* 'h' or 'help' to show this message, \n"
+        "* 'r' or 'reload' to detect new devices and reload configs, \n"
+        "* 'delay <value>' to set an extra delay between clicks (can also be negative), or \n"
+        "* 'q', 'quit', or 'exit' to quit (Ctrl+C is disabled).\n"
+    )
+
+
 def interface():
     """Runs the main loop asking for user input."""
     # Uses module-level state for interactive delay tuning command.
@@ -216,17 +228,21 @@ def interface():
         '\n'
         ' ##                          ## \n'
         '##   AutoTrader by jonaro00   ##\n'
+        '##    Tweaked by baatochan    ##\n'
         ' ##                          ## \n'
     )
     devices: list[DeviceAsyncWrapper] = asyncio.run(setup())
+    print_help()
     while True:
-        print()
         try:
-            i = input("Number of trades? ('q' to quit) > ").strip()
+            i = input("Number of trades? > ").strip()
             il = i.lower()
-            if il == 'q':
+            if il in ('q', 'quit', 'exit'):
                 break
-            if il == 'r' or il == 'reload':
+            if il in ('h', 'help'):
+                print_help()
+                continue
+            if il in ('r', 'reload'):
                 devices = asyncio.run(setup())
                 continue
             if il.startswith('delay'):
@@ -238,7 +254,7 @@ def interface():
                 continue
             assert (n := int(i)) > 0
         except KeyboardInterrupt:
-            print('\nDouble press interrupt to quit')
+            print('\nPress Ctrl+C again to force quit.')
             try:
                 time.sleep(0.5)
             except KeyboardInterrupt:
@@ -247,7 +263,7 @@ def interface():
         except EOFError:
             break
         except (ValueError, AssertionError):
-            print('Enter a positive integer')
+            print("Invalid input. Enter a positive integer or 'h' for help.")
             continue
         try:
             print(f'Starting {n} trades (Ctrl+C to cancel)...')
