@@ -226,6 +226,9 @@ def interface():
             il = i.lower()
             if il == 'q':
                 break
+            if il == 'r' or il == 'reload':
+                devices = asyncio.run(setup())
+                continue
             if il.startswith('delay'):
                 args = i.split()
                 args_l = len(args)
